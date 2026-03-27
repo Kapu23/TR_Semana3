@@ -40,9 +40,9 @@ public class CitaServiceImplement implements CitaService {
 	@Override
 	@Transactional(readOnly = true)
 	public List<CitaResponse> listar() {
-	    log.info("Generando listado histórico de citas (Activas y Eliminadas)");
+	    log.info("Generando listado de las citas ACTIVAS");
 	    
-	    return citaRepository.findAll().stream()
+	    return citaRepository.findByEstadoRegistro(EstadoRegistro.ACTIVO).stream()
 	            .map(cita ->
 	                citaMapper.entityToResponse(
 	                        cita,

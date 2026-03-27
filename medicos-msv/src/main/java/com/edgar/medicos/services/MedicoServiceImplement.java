@@ -99,12 +99,13 @@ public class MedicoServiceImplement implements MedicoService {
 
 	    DisponibilidadMedico nuevoEstado = DisponibilidadMedico.fromCodigo(idDisponibilidad);
 
+
 	    if (nuevoEstado == DisponibilidadMedico.DISPONIBLE) {
 	        
-	     
-	        if (medico.getDisponibilidad() != DisponibilidadMedico.EN_CONSULTA) {
-	            
-	 
+	        boolean vieneDeEstarOcupado = medico.getDisponibilidad() == DisponibilidadMedico.EN_CONSULTA 
+	                                   || medico.getDisponibilidad() == DisponibilidadMedico.NO_DISPONIBLE;
+
+	        if (!vieneDeEstarOcupado) {
 	            if (citaClient.obtenerCitaConfirmadaOEnCursoMedico(id)) {
 	                throw new EntidadRelacionadaException("Conflicto: el recurso tiene dependencias activas.");
 	            }
