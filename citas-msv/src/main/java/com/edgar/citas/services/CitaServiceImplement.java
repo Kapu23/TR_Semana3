@@ -40,15 +40,17 @@ public class CitaServiceImplement implements CitaService {
 	@Override
 	@Transactional(readOnly = true)
 	public List<CitaResponse> listar() {
-		log.info("Listado de todas las citas activas solicitado");
-		return citaRepository.findByEstadoRegistro(EstadoRegistro.ACTIVO).stream()
-				.map(cita ->
-					citaMapper.entityToResponse(
-							cita,
-							obtenerPacienteResponseSinEstado(cita.getIdPaciente()),
-							obtenerMedicoResponseSinEstado(cita.getIdMedico()))
-				).toList();
+	    log.info("Generando listado histórico de citas (Activas y Eliminadas)");
+	    
+	    return citaRepository.findAll().stream()
+	            .map(cita ->
+	                citaMapper.entityToResponse(
+	                        cita,
+	                        obtenerPacienteResponseSinEstado(cita.getIdPaciente()),
+	                        obtenerMedicoResponseSinEstado(cita.getIdMedico()))
+	            ).toList();
 	}
+	
 
 	@Override
 	@Transactional(readOnly = true)
@@ -111,21 +113,27 @@ public class CitaServiceImplement implements CitaService {
 	
 
 	@Override
+	@Transactional
 	public CitaResponse actualizar(CitaRequest request, Long id) {
-		Cita cita = obtenerCitaOException(id);
-		
-        log.info("Actualizando Cita con id: {}", id);
-        
-     
-        PacienteResponse paciente = obtenerPacienteResponse(request.idPaciente());
-        MedicoResponse medico = obtenerMedicoResponse(request.idMedico());
-        
-        EstadoCita estadoNuevo = EstadoCita.fromCodigo(request.idEstadoCita());
-        
-        citaMapper.updateEntityFromRequest(request, cita, estadoNuevo);
-        
-        log.info("Cita actualizada con id: {}", id);
-        return citaMapper.entityToResponse(cita, paciente, medico);
+	    Cita cita = obtenerCitaOException(id);
+	    
+	    EstadoCita estadoAnterior = cita.getEstadoCita();
+	    EstadoCita estadoNuevo = EstadoCita.fromCodigo(request.idEstadoCita());
+	    
+	
+	    if (estadoAnterior != estadoNuevo) {
+	        validarCambioEstado(estadoAnterior, estadoNuevo);
+	    }
+
+	    validarCambioDeMedico(cita, request.idMedico(), estadoNuevo);
+
+	 
+	    citaMapper.updateEntityFromRequest(request, cita, estadoNuevo);
+	    
+	    Cita citaActualizada = citaRepository.save(cita);
+	    return citaMapper.entityToResponse(citaActualizada, 
+	            obtenerPacienteResponseSinEstado(cita.getIdPaciente()), 
+	            obtenerMedicoResponseSinEstado(cita.getIdMedico()));
 	}
 	
 	
@@ -255,6 +263,31 @@ public class CitaServiceImplement implements CitaService {
 	    };
 	    
 	    medicoClient.actualizarDisponibilidad(idMedico, codigoDisponibilidad);
+	}
+	
+	
+	private void validarCambioDeMedico(Cita cita, Long idMedicoNuevo, EstadoCita estadoCita) {
+	    Long idMedicoViejo = cita.getIdMedico();
+
+
+	    if (!idMedicoViejo.equals(idMedicoNuevo)) {
+	        log.info("Cambiando médico de la cita");
+
+	   
+	        medicoClient.actualizarDisponibilidad(idMedicoViejo, 1L);
+
+	  
+	        MedicoResponse medicoNuevo = medicoClient.obtenerMedicoPorId(idMedicoNuevo);
+	        if (!medicoNuevo.disponibilidad().equalsIgnoreCase("Disponible para atender pacientes")) {
+	            throw new EntidadRelacionadaException("El nuevo médico no está DISPONIBLE.");
+	        }
+
+	 
+	        actualizarDisponibilidadMedicoSegunCita(idMedicoNuevo, estadoCita);
+	    } else {
+	    
+	        actualizarDisponibilidadMedicoSegunCita(idMedicoNuevo, estadoCita);
+	    }
 	}
 
 }
