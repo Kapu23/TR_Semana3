@@ -29,14 +29,14 @@ public class SecurityConfig {
 	            return corsConfiguration;
 	        }))
 	        .authorizeExchange((authorize) -> authorize
-		            /*.pathMatchers(HttpMethod.OPTIONS ,"/**").permitAll()
+		            .pathMatchers(HttpMethod.OPTIONS ,"/**").permitAll()
 		            .pathMatchers(HttpMethod.GET ,"/**").hasAnyRole("ADMIN", "USER")
 		            .pathMatchers(HttpMethod.POST ,"/**").hasAnyRole("ADMIN", "USER")
 		            .pathMatchers(HttpMethod.PUT ,"/**").hasAnyRole("ADMIN", "USER")
 		            .pathMatchers(HttpMethod.PATCH ,"/**").hasAnyRole("ADMIN", "USER")
 		            .pathMatchers(HttpMethod.DELETE ,"/**").hasRole("ADMIN")
-		            .anyExchange().authenticated()*/
-	        		.anyExchange().permitAll()
+		            .anyExchange().authenticated()
+	        		//.anyExchange().permitAll()
 		        )
 	        // Configura la app como Resource Server que valida JWT
 	        .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt ->

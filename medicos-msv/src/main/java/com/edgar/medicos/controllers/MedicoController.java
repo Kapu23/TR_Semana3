@@ -41,3 +41,4 @@ public class MedicoController extends CommonController<MedicoRequest, MedicoResp
     }
 	
 }
+

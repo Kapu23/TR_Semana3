@@ -83,7 +83,7 @@ public class CitaServiceImplement implements CitaService {
 
 
 	    if (!medico.disponibilidad().equalsIgnoreCase("Disponible para atender pacientes")) {
-	        throw new EntidadRelacionadaException("El médico no tiene disponibilidad DISPONIBLE."); 
+	        throw new EntidadRelacionadaException("La disponibilidad del médico no es DISPONIBLE."); 
 	    }
 
 
@@ -133,28 +133,23 @@ public class CitaServiceImplement implements CitaService {
 	@Override
 	@Transactional
 	public CitaResponse cambiarEstado(Long idCita, Long idEstado) {
-	   
 	    Cita cita = citaRepository.findByIdAndEstadoRegistro(idCita, EstadoRegistro.ACTIVO)
 	            .orElseThrow(() -> new RecursoNoEncontradoException("Cita no encontrada"));
 
-	    EstadoCita estadoAnterior = cita.getEstadoCita();
 	    EstadoCita estadoNuevo = EstadoCita.fromCodigo(idEstado);
+	    validarCambioEstado(cita.getEstadoCita(), estadoNuevo);
 
-	  
-	    validarTransicion(estadoAnterior, estadoNuevo);
-
-	
 	    cita.setEstadoCita(estadoNuevo);
-	    Cita citaActualizada = citaRepository.save(cita);
+	    
+	    citaRepository.saveAndFlush(cita); 
 
 
-	    actualizarDisponibilidadMedicoSegunCita(citaActualizada.getIdMedico(), estadoNuevo);
+	    actualizarDisponibilidadMedicoSegunCita(cita.getIdMedico(), estadoNuevo);
 
-	  
 	    PacienteResponse pac = pacienteClient.obtenerPacientePorIdSinEstado(cita.getIdPaciente());
 	    MedicoResponse med = medicoClient.obtenerMedicoPorIdSinEstado(cita.getIdMedico());
 	    
-	    return citaMapper.entityToResponse(citaActualizada, pac, med);
+	    return citaMapper.entityToResponse(cita, pac, med);
 	}
 	
 	
@@ -180,11 +175,11 @@ public class CitaServiceImplement implements CitaService {
 	    log.info("Comprobando citas activas para el paciente con id: {}", id);
 	    
 	   
-	    List<EstadoCita> estadosBloqueantes = List.of(EstadoCita.CONFIRMADA, EstadoCita.EN_CURSO);
+	    List<EstadoCita> estadosNoPermitidos = List.of(EstadoCita.CONFIRMADA, EstadoCita.EN_CURSO);
 	    
 	    return citaRepository.existsByIdPacienteAndEstadoCitaInAndEstadoRegistro(
 	            id, 
-	            estadosBloqueantes, 
+	            estadosNoPermitidos, 
 	            EstadoRegistro.ACTIVO
 	    );
 	}
@@ -201,7 +196,7 @@ public class CitaServiceImplement implements CitaService {
         cita.setEstadoRegistro(EstadoRegistro.ELIMINADO);
         citaRepository.save(cita);
         
-        log.info("Cita con id {} ha sido marcada como eliminada", id);
+        log.info("Cita con id {} eliminada", id);
 	}
 	
 	
@@ -238,7 +233,7 @@ public class CitaServiceImplement implements CitaService {
 	}
 	
 	
-	private void validarTransicion(EstadoCita anterior, EstadoCita nuevo) {
+	private void validarCambioEstado(EstadoCita anterior, EstadoCita nuevo) {
 	    boolean valida = switch (anterior) {
 	        case PENDIENTE -> nuevo == EstadoCita.CONFIRMADA || nuevo == EstadoCita.CANCELADA;
 	        case CONFIRMADA -> nuevo == EstadoCita.EN_CURSO || nuevo == EstadoCita.CANCELADA;
@@ -247,7 +242,7 @@ public class CitaServiceImplement implements CitaService {
 	    };
 
 	    if (!valida) {
-	        throw new IllegalStateException("Transición de estado no permitida: de " 
+	        throw new IllegalStateException("Cambio de estado no permitido: de " 
 	                + anterior.getDescripcion() + " a " + nuevo.getDescripcion()); 
 	    }
 	}

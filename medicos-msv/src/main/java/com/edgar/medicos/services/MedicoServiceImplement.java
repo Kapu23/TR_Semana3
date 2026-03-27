@@ -94,15 +94,24 @@ public class MedicoServiceImplement implements MedicoService {
 	@Override
 	@Transactional
 	public MedicoResponse actualizarDisponibilidad(Long id, Long idDisponibilidad) {
-	    
 	    Medico medico = medicoRepository.findById(id)
 	            .orElseThrow(() -> new RecursoNoEncontradoException("Médico no encontrado"));
 
 	    DisponibilidadMedico nuevoEstado = DisponibilidadMedico.fromCodigo(idDisponibilidad);
 
+	    if (nuevoEstado == DisponibilidadMedico.DISPONIBLE) {
+	        
+	     
+	        if (medico.getDisponibilidad() != DisponibilidadMedico.EN_CONSULTA) {
+	            
+	 
+	            if (citaClient.obtenerCitaConfirmadaOEnCursoMedico(id)) {
+	                throw new EntidadRelacionadaException("Conflicto: el recurso tiene dependencias activas.");
+	            }
+	        }
+	    }
+
 	    medico.setDisponibilidad(nuevoEstado);
-	    
-	    
 	    return medicoMapper.entityToResponse(medicoRepository.save(medico));
 	}
 	
@@ -113,7 +122,7 @@ public class MedicoServiceImplement implements MedicoService {
 		
 	
 	    if (citaClient.obtenerCitaConfirmadaOEnCursoMedico(id)) {
-	        throw new EntidadRelacionadaException("No se puede eliminar un médico con citas CONFIRMADA o EN_CURSO");
+	        throw new EntidadRelacionadaException("No se puede eliminar un médico con cita CONFIRMADA o EN_CURSO");
 	    }
 		
 		medico.setEstadoRegistro(EstadoRegistro.ELIMINADO);
